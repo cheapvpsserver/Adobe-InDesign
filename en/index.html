@@ -172,7 +172,7 @@
       background-color: rgba(70, 131, 244, 0.1);
     }
 
-    /* Main banner video style */
+    /* Main banner ad style */
     .hero-screenshot {
       width: 1000px;
       max-width: 100%;
@@ -184,39 +184,28 @@
       background-color: #f0f0f0;
     }
     
-    /* Video container relative positioning */
-    .video-container {
+    /* Ad container relative positioning */
+    .ad-container {
       position: relative;
-      cursor: pointer;
+      display: none; /* Hide by default, show after ad loads */
     }
     
-    /* Video overlay */
-    .video-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
+    /* Responsive ad adaptation */
+    .ad-container iframe {
       width: 100%;
       height: 100%;
-      background-color: rgba(0, 0, 0, 0.3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: opacity 0.3s ease;
-      z-index: 10;
+      min-height: 300px;
+      border: none;
+      overflow: hidden;
     }
     
-    /* Overlay text style */
-    .overlay-text {
-      color: white;
-      font-size: 36px;
-      font-weight: 600;
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-    }
-    
-    /* Hide overlay */
-    .video-overlay.hidden {
-      opacity: 0;
-      pointer-events: none;
+    /* Ensure ad container displays correctly on mobile devices */
+    @media (max-width: 768px) {
+      .ad-container {
+        width: 100%;
+        height: auto;
+        min-height: 300px;
+      }
     }
 
     /* Download modal style */
@@ -679,10 +668,11 @@
         <i class="fas fa-check-circle" style="color: #4CAF50; margin-right: 8px;"></i>
         <span style="color: #666;">This tool is the latest version</span>
       </div>
-      <!-- Main banner video - Bilibili embed -->
-      <div class="hero-screenshot video-container">
-        <!-- Bilibili player -->
-        <iframe id="bilibili-player" src="//player.bilibili.com/player.html?isOutside=true&aid=116034631700899&bvid=BV1SEcFzPEXC&cid=35912028108&p=1&autoplay=0&loop=0" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true" style="width: 100%; height: 100%; min-height: 300px;"></iframe>
+      <!-- Main banner ad -->
+      <div class="hero-screenshot ad-container">
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5020583079217470" crossorigin="anonymous"></script>
+        <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-5020583079217470" data-ad-slot="9083571436" data-ad-format="auto" data-full-width-responsive="true"></ins>
+        <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
       </div>
     </header>
 
@@ -905,8 +895,26 @@
       }
     });
     
-    // Video player reference
-    const bilibiliPlayer = document.getElementById('bilibili-player');
+    // Ad container reference
+    const adContainer = document.querySelector('.ad-container');
+    
+    // Ad loading monitoring
+    function monitorAdLoading() {
+      setTimeout(() => {
+        if (adContainer) {
+          const adContent = adContainer.querySelector('.adsbygoogle');
+          if (adContent) {
+            const adHeight = adContent.offsetHeight;
+            if (adHeight > 0) {
+              adContainer.style.display = 'block';
+            }
+          }
+        }
+      }, 2000);
+    }
+    
+    // Monitor ad when page loads
+    window.addEventListener('load', monitorAdLoading);
     
     // Download modal logic
     const downloadModal = document.getElementById('download-modal');
@@ -940,8 +948,7 @@
       return featureData[slug];
     }
     
-    // Get all download buttons and options container
-    const downloadButtons = document.querySelectorAll('.download-buttons .btn');
+    // Get options container
     const downloadOptionsContainer = document.getElementById('download-options');
     
     // Dynamically generate download options
@@ -956,13 +963,6 @@
       for (const [name, url] of Object.entries(links)) {
         const optionItem = document.createElement('div');
         optionItem.className = 'option-item';
-        
-        // Get display name based on platform
-        const platformName = {
-          'windows-64': 'Windows 64-bit',
-          'windows-32': 'Windows 32-bit',
-          'windows-portable': 'Windows 64-bit Portable Version'
-        }[feature.platform];
         
         // Use original link, no platform information added
         optionItem.innerHTML = `
@@ -999,7 +999,7 @@
         const button = document.querySelector(`.download-buttons .btn[data-platform="${feature.platform}"]`);
         if (button) {
           // 1. First restore all buttons to btn-outline style
-          downloadButtons.forEach(btn => {
+          document.querySelectorAll('.download-buttons .btn').forEach(btn => {
             btn.classList.remove('btn-blue');
             btn.classList.add('btn-outline');
           });
@@ -1025,56 +1025,57 @@
     // Initialize when page loads
     window.addEventListener('DOMContentLoaded', initPage);
     
-    // Add click event to each download button
-    downloadButtons.forEach(button => {
-      button.addEventListener('click', function(e) {
-        // Check if it's the "All Tools" button, if so do not prevent default behavior
-        if (this.getAttribute('href') === 'https://all.calipertools.com') {
-          return; // Directly return, do not prevent default behavior
+    // Use event delegation to handle download button clicks
+    document.addEventListener('click', function(e) {
+      const button = e.target.closest('.download-buttons .btn');
+      if (!button) return;
+      
+      // Check if it's the "All Tools" button, if so do not prevent default behavior
+      if (button.getAttribute('href') === 'https://all.calipertools.com') {
+        return;
+      }
+      
+      // Prevent default behavior, prevent page jump
+      e.preventDefault();
+      
+      // Get current platform
+      const platform = button.getAttribute('data-platform');
+      
+      // Find corresponding feature data
+      const slug = `adobe-indesign-${platform}`;
+      const feature = featureData[slug];
+      
+      if (feature) {
+        // Update page URL without refreshing page
+        const newUrl = `/en/${slug}`;
+        history.pushState({ slug }, feature.title, newUrl);
+        
+        // Update page title and description
+        updatePageInfo(feature);
+        
+        // Highlight corresponding download button
+        document.querySelectorAll('.download-buttons .btn').forEach(btn => {
+          btn.classList.remove('btn-blue');
+          btn.classList.add('btn-outline');
+        });
+        button.classList.remove('btn-outline');
+        button.classList.add('btn-blue');
+        
+        // Calculate link count
+        const linkCount = Object.keys(feature.links).length;
+        
+        if (linkCount === 1) {
+          // Only one link, open in new window
+          const firstLink = Object.values(feature.links)[0];
+          
+          // Open link in new window
+          window.open(firstLink, '_blank', 'noopener,noreferrer');
+        } else {
+          // Multiple links, generate options and display modal
+          generateDownloadOptions(feature);
+          downloadModal.style.display = 'block';
         }
-        
-        // Prevent default behavior, prevent page jump
-        e.preventDefault();
-        
-        // Get current platform
-        const platform = this.getAttribute('data-platform');
-        
-        // Find corresponding feature data
-        const slug = `adobe-indesign-${platform}`;
-        const feature = featureData[slug];
-        
-        if (feature) {
-          // Update page URL without refreshing page// 更新页面URL但不刷新页面
-          const newUrl = `/en/${slug}`;
-          history.pushState({ slug }, feature.title, newUrl);
-          
-          // Update page title and description
-          updatePageInfo(feature);
-          
-          // Highlight corresponding download button
-          downloadButtons.forEach(btn => {
-            btn.classList.remove('btn-blue');
-            btn.classList.add('btn-outline');
-          });
-          this.classList.remove('btn-outline');
-          this.classList.add('btn-blue');
-          
-          // Calculate link count
-          const linkCount = Object.keys(feature.links).length;
-          
-          if (linkCount === 1) {
-            // Only one link, open in new window
-            const firstLink = Object.values(feature.links)[0];
-            
-            // Open link in new window
-            window.open(firstLink, '_blank', 'noopener,noreferrer');
-          } else {
-            // Multiple links, generate options and display modal
-            generateDownloadOptions(feature);
-            downloadModal.style.display = 'block';
-          }
-        }
-      });
+      }
     });
     
     // Add popstate event listener, handle browser forward/back
